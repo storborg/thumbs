@@ -13,6 +13,19 @@ __here__ = os.path.dirname(__file__)
 extensions = set(['jpg', 'jpeg', 'tif', 'tiff', 'bmp', 'png', 'gif'])
 
 
+def readable_bytes(n):
+    n = float(n)
+    for exponent, prefix in ((5, 'P'),
+                             (4, 'T'),
+                             (3, 'G'),
+                             (2, 'M'),
+                             (1, 'K')):
+        cutoff = (1024 ** exponent)
+        if n >= cutoff:
+            return "%0.2f %sB" % (n / cutoff, prefix)
+    return "%d B" % n
+
+
 def find_images(path):
     for fn in os.listdir(path):
         ext = fn.rsplit('.', 1)[-1].lower()
@@ -41,9 +54,18 @@ def write_index_page(path, thumbs, name):
 
 class ThumbInfo(object):
 
-    def __init__(self, original_path, thumb_path):
+    def __init__(self, original_path, thumb_dir):
         self.original_path = original_path
-        self.thumb_path = thumb_path
+        self.thumb_path = make_thumbnail_path(original_path, thumb_dir)
+
+    def write_thumbnail(self, dimensions):
+        self.bytes = os.path.getsize(self.original_path)
+        self.readable_bytes = readable_bytes(self.bytes)
+        im = Image.open(self.original_path)
+        self.dimensions = im.size
+        self.format = im.format
+        im.thumbnail(dimensions)
+        im.save(self.thumb_path)
 
 
 def main():
@@ -56,7 +78,7 @@ def main():
 
     path = os.getcwd()
     name = os.path.basename(path)
-    dimensions = (300, 300)
+    dimensions = (300, 800)
     thumb_dir = 'thumbs'
     thumb_abs = os.path.join(path, thumb_dir)
 
@@ -65,8 +87,8 @@ def main():
 
     thumbs = []
     for fn in find_images(path):
-        thumb_path = make_thumbnail_path(fn, thumb_dir)
-        write_thumbnail(fn, thumb_path, dimensions)
-        thumbs.append(ThumbInfo(fn, thumb_path))
+        thumb = ThumbInfo(fn, thumb_dir)
+        thumb.write_thumbnail(dimensions)
+        thumbs.append(thumb)
 
     write_index_page(os.path.join(path, 'index.html'), thumbs, name)
